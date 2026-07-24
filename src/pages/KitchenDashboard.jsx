@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Clock, CheckCircle, ChefHat, UtensilsCrossed, Bell } from 'lucide-react'
+import { Clock, CheckCircle, ChefHat, UtensilsCrossed, Bell, XCircle } from 'lucide-react'
 
 const statusColors = {
   pending: { bg: '#FEF3C7', text: '#D97706', label: 'Pending' },
   preparing: { bg: '#DBEAFE', text: '#2563EB', label: 'Preparing' },
   ready: { bg: '#D1FAE5', text: '#16A34A', label: 'Ready' },
   served: { bg: '#F3F4F6', text: '#6B7280', label: 'Served' },
+  cancelled: { bg: '#FEE2E2', text: '#DC2626', label: 'Cancelled' },
 }
 
 export default function KitchenDashboard() {
@@ -75,6 +76,25 @@ export default function KitchenDashboard() {
       setError(err.message)
       setTimeout(() => setError(''), 4000)
     }
+  }
+
+  const cancelKot = async (id) => {
+    if (!window.confirm('Are you sure you want to cancel this order?')) return
+    try {
+      const res = await fetch(`/api/kitchen/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled', chef_username: currentChefRef.current?.username, chef_code: currentChefRef.current?.code })
+      })
+      if (res.ok) {
+        fetchKOTs()
+        fetchStats()
+      } else {
+        const data = await res.json()
+        setError(data.error || 'Failed to cancel')
+        setTimeout(() => setError(''), 4000)
+      }
+    } catch (err) { console.error('Failed to cancel KOT:', err) }
   }
 
   const handleStartPreparing = (kot) => {
@@ -265,6 +285,11 @@ export default function KitchenDashboard() {
                 {kot.status === 'preparing' && currentChefRef.current && (
                   <button className="btn btn-ghost btn-sm" onClick={() => handleUpdateWithChef(kot, 'pending')}>
                     Revert
+                  </button>
+                )}
+                {['pending', 'preparing'].includes(kot.status) && (
+                  <button className="btn btn-danger btn-sm" onClick={() => cancelKot(kot.id)}>
+                    <XCircle size={14} strokeWidth={1.5} /> Cancel
                   </button>
                 )}
               </div>
